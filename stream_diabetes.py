@@ -2,120 +2,86 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
-import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime
 
 # Konfigurasi halaman
 st.set_page_config(
     page_title="Prediksi Diabetes",
     page_icon="🏥",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# CSS kustom
+# CSS sederhana
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 2.5rem;
-        color: #1E3A8A;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .result-box {
-        padding: 2rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-    }
-    .positive {
-        background-color: #FEE2E2;
-        border-left: 5px solid #DC2626;
-    }
-    .negative {
-        background-color: #DCFCE7;
-        border-left: 5px solid #16A34A;
-    }
-    .metric-card {
-        background: white;
-        padding: 1rem;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin-bottom: 1rem;
-    }
+    .positive { background-color: #ffebee; padding: 20px; border-radius: 10px; border-left: 5px solid #f44336; }
+    .negative { background-color: #e8f5e9; padding: 20px; border-radius: 10px; border-left: 5px solid #4caf50; }
 </style>
 """, unsafe_allow_html=True)
 
-# Judul dengan style
-st.markdown('<h1 class="main-header">🏥 Aplikasi Prediksi Diabetes</h1>', unsafe_allow_html=True)
-st.markdown("***Aplikasi untuk mendeteksi risiko diabetes berdasarkan data medis***")
-
-# Sidebar untuk navigasi
+# Sidebar navigasi
 with st.sidebar:
-    st.image("https://img.icons8.com/color/96/000000/diabetes.png", width=100)
-    st.title("Navigasi")
-    
+    st.title("🩺 Menu")
     menu = st.radio(
-        "Pilih Menu:",
-        ["🏠 Beranda", "📊 Prediksi", "📈 Analisis", "📋 Data", "ℹ️ Tentang"]
+        "Pilih:",
+        ["🏠 Beranda", "📊 Prediksi", "📋 Data", "ℹ️ Info"]
     )
     
     st.markdown("---")
     st.info("""
-    **Cara Penggunaan:**
+    **Cara Pakai:**
     1. Pilih menu **Prediksi**
     2. Isi data pasien
-    3. Klik tombol **Prediksi**
-    4. Lihat hasil dan rekomendasi
+    3. Klik **Prediksi**
+    4. Lihat hasil
     """)
 
-# Load model
-@st.cache_resource
-def load_model():
-    try:
-        with open('diabetes_model.sav', 'rb') as file:
-            model = pickle.load(file)
-        return model, True
-    except:
-        return None, False
+# Load model - SIMPLE VERSION
+try:
+    with open('diabetes_model.sav', 'rb') as f:
+        model_diabetes = pickle.load(f)
+    model_status = "loaded"
+    st.sidebar.success("✅ Model loaded")
+except FileNotFoundError:
+    model_diabetes = None
+    model_status = "not_found"
+    st.sidebar.error("❌ Model file not found")
+except Exception as e:
+    model_diabetes = None
+    model_status = "error"
+    st.sidebar.warning(f"⚠️ Error: {str(e)[:50]}")
 
-model_diabetes, model_loaded = load_model()
 # ==================== BERANDA ====================
 if menu == "🏠 Beranda":
+    st.title("🏥 Aplikasi Prediksi Diabetes")
+    
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.header("Selamat Datang di Aplikasi Prediksi Diabetes")
-        st.write("""
-        Aplikasi ini menggunakan **Machine Learning** untuk memprediksi risiko diabetes 
-        berdasarkan parameter kesehatan pasien. Dengan teknologi AI, kami dapat membantu 
-        mendeteksi potensi diabetes secara dini.
+        st.markdown("""
+        ## Selamat Datang!
         
-        **Fitur Utama:**
-        ✅ **Prediksi Risiko Diabetes** - Analisis berdasarkan 8 parameter kesehatan
-        ✅ **Visualisasi Data** - Grafik interaktif untuk pemahaman lebih baik
-        ✅ **Rekomendasi Kesehatan** - Saran personalized berdasarkan hasil
-        ✅ **Riwayat Prediksi** - Simpan dan bandingkan hasil prediksi
+        Aplikasi ini membantu mendeteksi risiko **diabetes** berdasarkan data medis pasien.
+        
+        **Fitur:**
+        ✅ Prediksi risiko diabetes
+        ✅ Analisis 8 parameter kesehatan
+        ✅ Rekomendasi kesehatan personal
+        
+        **Parameter yang dianalisis:**
+        1. Jumlah Kehamilan
+        2. Kadar Glukosa
+        3. Tekanan Darah
+        4. Ketebalan Kulit
+        5. Insulin
+        6. BMI
+        7. Riwayat Diabetes Keluarga
+        8. Usia
         """)
-        
-        # Statistik cepat
-        st.subheader("📈 Statistik Diabetes Global")
-        col_stat1, col_stat2, col_stat3 = st.columns(3)
-        with col_stat1:
-            st.metric("Penderita Diabetes", "537 Juta", "+16%")
-        with col_stat2:
-            st.metric("Kematian/Tahun", "6.7 Juta", "1 setiap 5 detik")
-        with col_stat3:
-            st.metric("Biaya Kesehatan", "$966B", "+316% dalam 15 tahun")
     
     with col2:
-        st.image("https://img.icons8.com/color/300/000000/doctor-male.png")
-        st.markdown("""
-        <div style='text-align: center'>
-            <h4>⏱️ Cepat & Akurat</h4>
-            <p>Hasil prediksi dalam hitungan detik</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.image("https://img.icons8.com/color/200/000000/health-checkup.png")
+        st.write("**Status Model:**", model_status)
 
 # ==================== PREDIKSI ====================
 elif menu == "📊 Prediksi":
@@ -140,17 +106,14 @@ elif menu == "📊 Prediksi":
     
     st.markdown("---")
     
-    # Tombol prediksi
+    # Tombol prediksi - PERBAIKAN DI SINI
     if st.button("🚀 LAKUKAN PREDIKSI", type="primary", use_container_width=True):
-        if model_ok and model_diabetes is not None:
-            # Format input
-            input_data = np.array([[kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
-                                  insulin, bmi, riwayat_diabetes, usia]])
-            
-            # Cek tipe model
-            model_type = type(model_diabetes).__name__
-            
+        if model_diabetes is not None:  # PERUBAHAN: hanya cek model_diabetes
             try:
+                # Format input
+                input_data = np.array([[kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
+                                      insulin, bmi, riwayat_diabetes, usia]])
+                
                 # Prediksi
                 hasil = model_diabetes.predict(input_data)[0]
                 
@@ -160,7 +123,6 @@ elif menu == "📊 Prediksi":
                 if hasil == 1:
                     st.markdown('<div class="positive">', unsafe_allow_html=True)
                     st.error("## ⚠️ HASIL: RISIKO DIABETES TINGGI")
-                    st.write(f"**Model:** {model_type}")
                     st.write("""
                     **Rekomendasi:**
                     1. Konsultasi dokter segera
@@ -172,7 +134,6 @@ elif menu == "📊 Prediksi":
                 else:
                     st.markdown('<div class="negative">', unsafe_allow_html=True)
                     st.success("## ✅ HASIL: RISIKO DIABETES RENDAH")
-                    st.write(f"**Model:** {model_type}")
                     st.write("""
                     **Pertahankan:**
                     1. Pola makan sehat
@@ -219,7 +180,7 @@ elif menu == "📊 Prediksi":
             
         else:
             st.error("❌ Model tidak tersedia.")
-            st.write("Coba buat model baru atau pastikan file diabetes_model.sav ada di repository.")
+            st.write("Pastikan file diabetes_model.sav ada di repository.")
 
 # ==================== DATA ====================
 elif menu == "📋 Data":
@@ -324,4 +285,4 @@ elif menu == "ℹ️ Info":
 
 # Footer
 st.markdown("---")
-st.caption("🩺 Aplikasi Prediksi Diabetes • Untuk edukasi kesehatan • © 2024")
+st.caption("🩺 Aplikasi Prediksi Diabetes • Untuk edukasi kesehatan • © 2025")
