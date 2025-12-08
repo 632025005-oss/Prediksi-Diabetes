@@ -19,7 +19,7 @@ df.to_csv("diabetes.csv", index=False)
 
 import pickle
 
-diabetes_model = pickle.load(open('/mount/src/Prediksi-Diabetes/diabetes_model.sav', 'rb'))
+diabetes_model = pickle.load(open('/mount/src/prediksi-diabetes/diabetes_model.sav', 'rb'))
 
 import streamlit as st
 st.title('Prediksi Diabetes')
