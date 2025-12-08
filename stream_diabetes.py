@@ -2,54 +2,84 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
+import plotly.express as px
+import plotly.graph_objects as go
 from datetime import datetime
 
 # Konfigurasi halaman
 st.set_page_config(
     page_title="Prediksi Diabetes",
     page_icon="🏥",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# CSS sederhana
+# CSS kustom
 st.markdown("""
 <style>
-    .positive { background-color: #ffebee; padding: 20px; border-radius: 10px; border-left: 5px solid #f44336; }
-    .negative { background-color: #e8f5e9; padding: 20px; border-radius: 10px; border-left: 5px solid #4caf50; }
+    .main-header {
+        font-size: 2.5rem;
+        color: #1E3A8A;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .result-box {
+        padding: 2rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+    }
+    .positive {
+        background-color: #FEE2E2;
+        border-left: 5px solid #DC2626;
+    }
+    .negative {
+        background-color: #DCFCE7;
+        border-left: 5px solid #16A34A;
+    }
+    .metric-card {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Sidebar navigasi
+# Judul dengan style
+st.markdown('<h1 class="main-header">🏥 Aplikasi Prediksi Diabetes</h1>', unsafe_allow_html=True)
+st.markdown("***Aplikasi untuk mendeteksi risiko diabetes berdasarkan data medis***")
+
+# Sidebar untuk navigasi
 with st.sidebar:
-    st.title("🩺 Menu")
+    st.image("https://img.icons8.com/color/96/000000/diabetes.png", width=100)
+    st.title("Navigasi")
+    
     menu = st.radio(
-        "Pilih:",
-        ["🏠 Beranda", "📊 Prediksi", "📋 Data", "ℹ️ Info"]
+        "Pilih Menu:",
+        ["🏠 Beranda", "📊 Prediksi", "📈 Analisis", "📋 Data", "ℹ️ Tentang"]
     )
     
     st.markdown("---")
     st.info("""
-    **Cara Pakai:**
+    **Cara Penggunaan:**
     1. Pilih menu **Prediksi**
     2. Isi data pasien
-    3. Klik **Prediksi**
-    4. Lihat hasil
+    3. Klik tombol **Prediksi**
+    4. Lihat hasil dan rekomendasi
     """)
 
-# Load model - SIMPLE VERSION
-try:
-    with open('diabetes_model.sav', 'rb') as f:
-        model_diabetes = pickle.load(f)
-    model_status = "loaded"
-    st.sidebar.success("✅ Model loaded")
-except FileNotFoundError:
-    model_diabetes = None
-    model_status = "not_found"
-    st.sidebar.error("❌ Model file not found")
-except Exception as e:
-    model_diabetes = None
-    model_status = "error"
-    st.sidebar.warning(f"⚠️ Error: {str(e)[:50]}")
+# Load model
+@st.cache_resource
+def load_model():
+    try:
+        with open('diabetes_model.sav', 'rb') as file:
+            model = pickle.load(file)
+        return model, True
+    except:
+        return None, False
+
+model_diabetes, model_loaded = load_model()
 
 # ==================== BERANDA ====================
 if menu == "🏠 Beranda":
