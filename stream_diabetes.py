@@ -2,93 +2,120 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
+import plotly.express as px
+import plotly.graph_objects as go
 from datetime import datetime
 
 # Konfigurasi halaman
 st.set_page_config(
     page_title="Prediksi Diabetes",
     page_icon="🏥",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# CSS sederhana
+# CSS kustom
 st.markdown("""
 <style>
-    .positive { background-color: #ffebee; padding: 20px; border-radius: 10px; border-left: 5px solid #f44336; }
-    .negative { background-color: #e8f5e9; padding: 20px; border-radius: 10px; border-left: 5px solid #4caf50; }
-    .metric-card { background: #f5f5f5; padding: 15px; border-radius: 10px; margin: 10px 0; }
+    .main-header {
+        font-size: 2.5rem;
+        color: #1E3A8A;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .result-box {
+        padding: 2rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+    }
+    .positive {
+        background-color: #FEE2E2;
+        border-left: 5px solid #DC2626;
+    }
+    .negative {
+        background-color: #DCFCE7;
+        border-left: 5px solid #16A34A;
+    }
+    .metric-card {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Sidebar navigasi
+# Judul dengan style
+st.markdown('<h1 class="main-header">🏥 Aplikasi Prediksi Diabetes</h1>', unsafe_allow_html=True)
+st.markdown("***Aplikasi untuk mendeteksi risiko diabetes berdasarkan data medis***")
+
+# Sidebar untuk navigasi
 with st.sidebar:
-    st.title("🩺 Menu")
+    st.image("https://img.icons8.com/color/96/000000/diabetes.png", width=100)
+    st.title("Navigasi")
+    
     menu = st.radio(
-        "Pilih:",
-        ["🏠 Beranda", "📊 Prediksi", "📋 Data", "ℹ️ Info"]
+        "Pilih Menu:",
+        ["🏠 Beranda", "📊 Prediksi", "📈 Analisis", "📋 Data", "ℹ️ Tentang"]
     )
     
     st.markdown("---")
     st.info("""
-    **Cara Pakai:**
+    **Cara Penggunaan:**
     1. Pilih menu **Prediksi**
     2. Isi data pasien
-    3. Klik **Prediksi**
-    4. Lihat hasil
+    3. Klik tombol **Prediksi**
+    4. Lihat hasil dan rekomendasi
     """)
 
-# Load model dengan error handling
-model_diabetes = None
-model_ok = False
+# Load model
+@st.cache_resource
+def load_model():
+    try:
+        with open('diabetes_model.sav', 'rb') as file:
+            model = pickle.load(file)
+        return model, True
+    except:
+        return None, False
 
-try:
-    with open('diabetes_model.sav', 'rb') as f:
-        model_diabetes = pickle.load(f)
-        model_ok = True
-        st.sidebar.success("✅ Model loaded")
-except FileNotFoundError:
-    st.sidebar.error("❌ File model tidak ditemukan")
-except Exception as e:
-    st.sidebar.warning(f"⚠️ Error: {str(e)[:50]}...")
-
+model_diabetes, model_loaded = load_model()
 # ==================== BERANDA ====================
 if menu == "🏠 Beranda":
-    st.title("🏥 Aplikasi Prediksi Diabetes")
-    
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.markdown("""
-        ## Selamat Datang!
+        st.header("Selamat Datang di Aplikasi Prediksi Diabetes")
+        st.write("""
+        Aplikasi ini menggunakan **Machine Learning** untuk memprediksi risiko diabetes 
+        berdasarkan parameter kesehatan pasien. Dengan teknologi AI, kami dapat membantu 
+        mendeteksi potensi diabetes secara dini.
         
-        Aplikasi ini membantu mendeteksi risiko **diabetes** berdasarkan data medis pasien.
-        
-        **Fitur:**
-        ✅ Prediksi risiko diabetes
-        ✅ Analisis 8 parameter kesehatan
-        ✅ Rekomendasi kesehatan personal
-        ✅ Tampilan data interaktif
-        
-        **Parameter yang dianalisis:**
-        1. Jumlah Kehamilan
-        2. Kadar Glukosa
-        3. Tekanan Darah
-        4. Ketebalan Kulit
-        5. Insulin
-        6. BMI
-        7. Riwayat Diabetes Keluarga
-        8. Usia
+        **Fitur Utama:**
+        ✅ **Prediksi Risiko Diabetes** - Analisis berdasarkan 8 parameter kesehatan
+        ✅ **Visualisasi Data** - Grafik interaktif untuk pemahaman lebih baik
+        ✅ **Rekomendasi Kesehatan** - Saran personalized berdasarkan hasil
+        ✅ **Riwayat Prediksi** - Simpan dan bandingkan hasil prediksi
         """)
+        
+        # Statistik cepat
+        st.subheader("📈 Statistik Diabetes Global")
+        col_stat1, col_stat2, col_stat3 = st.columns(3)
+        with col_stat1:
+            st.metric("Penderita Diabetes", "537 Juta", "+16%")
+        with col_stat2:
+            st.metric("Kematian/Tahun", "6.7 Juta", "1 setiap 5 detik")
+        with col_stat3:
+            st.metric("Biaya Kesehatan", "$966B", "+316% dalam 15 tahun")
     
     with col2:
-        st.image("https://img.icons8.com/color/200/000000/health-checkup.png")
-        
-        # Statistik
-        st.markdown("### 📊 Statistik")
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.write("**537 Juta** orang hidup dengan diabetes")
-        st.write("**1 dari 10** orang dewasa terkena")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.image("https://img.icons8.com/color/300/000000/doctor-male.png")
+        st.markdown("""
+        <div style='text-align: center'>
+            <h4>⏱️ Cepat & Akurat</h4>
+            <p>Hasil prediksi dalam hitungan detik</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ==================== PREDIKSI ====================
 elif menu == "📊 Prediksi":
