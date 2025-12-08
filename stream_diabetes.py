@@ -307,9 +307,6 @@ elif menu == "📊 Prediksi":
                 # Tampilkan analisis
                 for item in analisis:
                     st.write(item)
-                    
-            except Exception as e:
-                st.error(f"Error prediksi: {str(e)}")
                 
                 st.download_button(
                     label="📥 Download Hasil Prediksi",
