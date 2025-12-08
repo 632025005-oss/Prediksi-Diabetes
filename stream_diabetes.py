@@ -119,51 +119,76 @@ if menu == "🏠 Beranda":
         """, unsafe_allow_html=True)
 
 # ==================== HALAMAN PREDIKSI ====================
-  # GANTI bagian prediksi dengan ini:
-
-if st.button("🚀 LAKUKAN PREDIKSI"):
-    if model_ok:
-        input_data = np.array([[kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
-                              insulin, bmi, riwayat_diabetes, usia]])
-        
-        # Dapatkan prediksi dan confidence
-        hasil_prediksi = model_diabetes.predict(input_data)[0]
-        
-        # Cek tipe model
-        model_type = type(model_diabetes).__name__
-        
-        # Tampilkan informasi model
-        st.info(f"Model: {model_type}")
-        
-        # Jika SVC, tampilkan decision score
-        if model_type == 'SVC' and hasattr(model_diabetes, 'decision_function'):
-            try:
-                score = model_diabetes.decision_function(input_data)[0]
-                st.write(f"**Decision Score:** `{score:.4f}`")
-                
-                # Interpretasi berdasarkan score
-                if score > 1.0:
-                    st.error("## ⚠️ DIABETES (HIGH CONFIDENCE)")
-                    st.write(f"Score: {score:.2f} → Risiko sangat tinggi")
-                elif score > 0:
-                    st.warning("## ⚠️ POTENSI DIABETES (LOW CONFIDENCE)")
-                    st.write(f"Score: {score:.2f} → Perlu pemeriksaan lanjut")
-                else:
-                    st.success("## ✅ SEHAT")
-                    st.write(f"Score: {score:.2f} → Risiko rendah")
-                    
-            except:
-                # Fallback ke prediksi biasa
-                if hasil_prediksi == 1:
-                    st.error("## ⚠️ HASIL: DIABETES")
-                else:
-                    st.success("## ✅ HASIL: SEHAT")
-        else:
-            # Untuk model lain
-            if hasil_prediksi == 1:
-                st.error("## ⚠️ HASIL: DIABETES")
+  elif menu == "📊 Prediksi":
+    st.title("🔍 Prediksi Diabetes")
+    
+    # Input data
+    st.header("Data Pasien")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        kehamilan = st.slider("Jumlah Kehamilan", 0, 17, 3)
+        glukosa = st.number_input("Glukosa (mg/dL)", 0, 200, 117)
+        tekanan_darah = st.number_input("Tekanan Darah", 0, 130, 72)
+        ketebalan_kulit = st.number_input("Ketebalan Kulit (mm)", 0, 100, 23)
+    
+    with col2:
+        insulin = st.number_input("Insulin (mu U/ml)", 0, 900, 30)
+        bmi = st.number_input("BMI", 0.0, 70.0, 32.0, step=0.1)
+        riwayat_diabetes = st.number_input("Riwayat Diabetes", 0.0, 2.5, 0.3725, step=0.001)
+        usia = st.number_input("Usia (tahun)", 1, 100, 29)
+    
+    st.markdown("---")
+    
+    # Tombol prediksi
+    if st.button("🚀 LAKUKAN PREDIKSI", type="primary", use_container_width=True):
+        if model_ok and model_diabetes is not None:
+            # Format input
+            input_data = np.array([[kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
+                                  insulin, bmi, riwayat_diabetes, usia]])
+            
+            # Prediksi
+            hasil = model_diabetes.predict(input_data)[0]
+            
+            # Tampilkan hasil
+            st.balloons()
+            
+            if hasil == 1:
+                st.markdown('<div class="positive">', unsafe_allow_html=True)
+                st.error("## ⚠️ HASIL: RISIKO DIABETES TINGGI")
+                st.write("""
+                **Rekomendasi:**
+                1. Konsultasi dokter segera
+                2. Cek gula darah rutin
+                3. Diet rendah gula
+                4. Olahraga teratur
+                """)
+                st.markdown('</div>', unsafe_allow_html=True)
             else:
-                st.success("## ✅ HASIL: SEHAT")
+                st.markdown('<div class="negative">', unsafe_allow_html=True)
+                st.success("## ✅ HASIL: RISIKO DIABETES RENDAH")
+                st.write("""
+                **Pertahankan:**
+                1. Pola makan sehat
+                2. Aktivitas fisik
+                3. Cek kesehatan rutin
+                4. Hindari stres
+                """)
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Tampilkan data input
+            st.subheader("📋 Data yang Dimasukkan")
+            data_dict = {
+                'Parameter': ['Kehamilan', 'Glukosa', 'Tekanan Darah', 'Ketebalan Kulit',
+                             'Insulin', 'BMI', 'Riwayat Diabetes', 'Usia'],
+                'Nilai': [kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
+                         insulin, bmi, riwayat_diabetes, usia]
+            }
+            st.table(pd.DataFrame(data_dict))
+            
+        else:
+            st.error("❌ Model tidak tersedia. Pastikan file diabetes_model.sav ada.")
 # ==================== HALAMAN ANALISIS ====================
 elif menu == "📈 Analisis":
     st.header("📈 Analisis Data Diabetes")
