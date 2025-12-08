@@ -119,182 +119,177 @@ if menu == "🏠 Beranda":
         """, unsafe_allow_html=True)
 
 # ==================== HALAMAN PREDIKSI ====================
-elif menu == "📊 Prediksi":
-    st.header("🔍 Prediksi Risiko Diabetes")
-    
-    tab1, tab2 = st.tabs(["📝 Input Data", "⚡ Input Cepat"])
-    
-    with tab1:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Data Medis")
-            kehamilan = st.slider('Jumlah Kehamilan', 0, 17, 3, 
-                                 help="Total kehamilan yang pernah dialami")
-            glukosa = st.number_input('Kadar Glukosa (mg/dL)', 0, 200, 117,
-                                     help="Kadar glukosa darah puasa")
-            tekanan_darah = st.number_input('Tekanan Darah (mm Hg)', 0, 130, 72)
-            ketebalan_kulit = st.number_input('Ketebalan Kulit (mm)', 0, 100, 23)
-        
-        with col2:
-            st.subheader("Data Fisik")
-            insulin = st.number_input('Insulin Serum (mu U/ml)', 0, 900, 30)
-            bmi = st.number_input('Indeks Massa Tubuh (BMI)', 0.0, 70.0, 32.0, step=0.1)
-            riwayat_diabetes = st.number_input('Skor Riwayat Diabetes Keluarga', 0.0, 2.5, 0.3725, step=0.01)
-            usia = st.number_input('Usia (tahun)', 1, 100, 29)
-    
-    with tab2:
-        st.write("Pilih contoh data pasien:")
-        contoh_data = st.selectbox(
-            "Pilihan Contoh:",
-            ["Pasien Standar", "Risiko Rendah", "Risiko Tinggi", "Lansia", "Ibu Hamil"]
-        )
-        
-        if contoh_data == "Pasien Standar":
-            kehamilan, glukosa, tekanan_darah, ketebalan_kulit = 3, 117, 72, 23
-            insulin, bmi, riwayat_diabetes, usia = 30, 32.0, 0.3725, 29
-        elif contoh_data == "Risiko Tinggi":
-            kehamilan, glukosa, tekanan_darah, ketebalan_kulit = 6, 148, 72, 35
-            insulin, bmi, riwayat_diabetes, usia = 0, 33.6, 0.627, 50
-        elif contoh_data == "Risiko Rendah":
-            kehamilan, glukosa, tekanan_darah, ketebalan_kulit = 1, 89, 66, 23
-            insulin, bmi, riwayat_diabetes, usia = 94, 28.1, 0.167, 21
-        elif contoh_data == "Lansia":
-            kehamilan, glukosa, tekanan_darah, ketebalan_kulit = 0, 120, 80, 30
-            insulin, bmi, riwayat_diabetes, usia = 0, 28.0, 0.400, 65
-        else:  # Ibu Hamil
-            kehamilan, glukosa, tekanan_darah, ketebalan_kulit = 5, 130, 70, 25
-            insulin, bmi, riwayat_diabetes, usia = 100, 30.0, 0.300, 32
-            
-        # Tampilkan nilai yang dipilih
-        data_contoh = pd.DataFrame({
-            'Parameter': ['Kehamilan', 'Glukosa', 'Tekanan Darah', 'Ketebalan Kulit',
-                         'Insulin', 'BMI', 'Riwayat Diabetes', 'Usia'],
-            'Nilai': [kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
-                     insulin, bmi, riwayat_diabetes, usia]
-        })
-        st.dataframe(data_contoh, use_container_width=True)
-    
-    st.markdown("---")
-    
     # Tombol prediksi
-    col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
-    with col_btn2:
-        if st.button('🚀 LAKUKAN PREDIKSI', type="primary", use_container_width=True):
-            if model_loaded:
-                # Format data
-                data_input = np.array([[kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
-                                       insulin, bmi, riwayat_diabetes, usia]])
+    if st.button("🚀 LAKUKAN PREDIKSI", type="primary", use_container_width=True):
+        if model_ok and model_diabetes is not None:
+            # Format input
+            input_data = np.array([[kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
+                                  insulin, bmi, riwayat_diabetes, usia]])
+            
+            # Cek tipe model
+            model_type = type(model_diabetes).__name__
+            st.info(f"Model: {model_type}")
+            
+            # Prediksi berdasarkan tipe model
+            if model_type == 'SVC':
+                # Untuk SVC, kita buat probabilitas manual
+                hasil = model_diabetes.predict(input_data)[0]
                 
-                # Prediksi
-                hasil_prediksi = model_diabetes.predict(data_input)[0]
+                # Hitung skor risiko manual
+                skor_risiko = 0
                 
-                # Simpan ke session state untuk halaman lain
-                st.session_state['last_prediction'] = {
-                    'data': [kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
-                            insulin, bmi, riwayat_diabetes, usia],
-                    'hasil': hasil_prediksi,
-                    'waktu': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    'model': type(model_diabetes).__name__
-                }
+                # Aturan sederhana berdasarkan parameter medis
+                if glukosa >= 126:  # Diabetes threshold
+                    skor_risiko += 30
+                elif glukosa >= 100:  # Pre-diabetes
+                    skor_risiko += 15
+                    
+                if bmi >= 30:  # Obesitas
+                    skor_risiko += 20
+                elif bmi >= 25:  # Overweight
+                    skor_risiko += 10
+                    
+                if usia >= 45:
+                    skor_risiko += 15
+                elif usia >= 35:
+                    skor_risiko += 5
+                    
+                if riwayat_diabetes >= 0.5:
+                    skor_risiko += 20
+                    
+                # Faktor lainnya
+                if insulin == 0:
+                    skor_risiko += 10
+                    
+                # Normalisasi skor 0-100
+                skor_risiko = min(100, skor_risiko)
+                
+                # Tampilkan hasil berdasarkan skor
+                st.balloons()
+                
+                if skor_risiko >= 50:
+                    st.markdown('<div class="positive">', unsafe_allow_html=True)
+                    st.error(f"## ⚠️ RISIKO DIABETES TINGGI")
+                    st.write(f"**Skor Risiko:** {skor_risiko}/100")
+                    st.write("""
+                    **Rekomendasi:**
+                    1. 🏥 Konsultasi dokter segera
+                    2. 💉 Cek HbA1c untuk konfirmasi
+                    3. 🍎 Diet rendah gula & karbo
+                    4. 🏃 Olahraga 30 menit/hari
+                    5. 📊 Pantau gula darah rutin
+                    """)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    
+                elif skor_risiko >= 30:
+                    st.warning(f"## ⚠️ RISIKO DIABETES SEDANG")
+                    st.write(f"**Skor Risiko:** {skor_risiko}/100")
+                    st.write("""
+                    **Saran:**
+                    1. 🩺 Cek kesehatan rutin
+                    2. ⚖️ Jaga berat badan ideal
+                    3. 🥗 Perbaiki pola makan
+                    4. 🚶 Aktif bergerak setiap hari
+                    """)
+                    
+                else:
+                    st.markdown('<div class="negative">', unsafe_allow_html=True)
+                    st.success(f"## ✅ RISIKO DIABETES RENDAH")
+                    st.write(f"**Skor Risiko:** {skor_risiko}/100")
+                    st.write("""
+                    **Pertahankan:**
+                    1. ✅ Pola makan sehat
+                    2. ✅ Aktivitas fisik teratur
+                    3. ✅ Cek kesehatan 6 bulan sekali
+                    4. ✅ Kelola stres dengan baik
+                    """)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
+                # Tampilkan analisis parameter
+                st.subheader("📊 Analisis Parameter:")
+                
+                analisis = []
+                if glukosa >= 126:
+                    analisis.append(f"❌ **Glukosa tinggi** ({glukosa} ≥ 126 mg/dL)")
+                elif glukosa >= 100:
+                    analisis.append(f"⚠️ **Glukosa perbatasan** ({glukosa} mg/dL)")
+                else:
+                    analisis.append(f"✅ **Glukosa normal** ({glukosa} mg/dL)")
+                    
+                if bmi >= 30:
+                    analisis.append(f"❌ **BMI obesitas** ({bmi} ≥ 30)")
+                elif bmi >= 25:
+                    analisis.append(f"⚠️ **BMI overweight** ({bmi})")
+                else:
+                    analisis.append(f"✅ **BMI normal** ({bmi})")
+                    
+                if usia >= 45:
+                    analisis.append(f"⚠️ **Usia risiko** ({usia} ≥ 45 tahun)")
+                else:
+                    analisis.append(f"✅ **Usia aman** ({usia} tahun)")
+                    
+                if riwayat_diabetes >= 0.8:
+                    analisis.append(f"❌ **Riwayat keluarga kuat** ({riwayat_diabetes})")
+                elif riwayat_diabetes >= 0.5:
+                    analisis.append(f"⚠️ **Riwayat keluarga sedang** ({riwayat_diabetes})")
+                else:
+                    analisis.append(f"✅ **Riwayat keluarga rendah** ({riwayat_diabetes})")
+                
+                for a in analisis:
+                    st.write(f"- {a}")
+            
+            else:
+                # Untuk model selain SVC (RandomForest dll)
+                hasil = model_diabetes.predict(input_data)[0]
                 
                 # Tampilkan hasil
-                st.balloons()  # Animasi
+                st.balloons()
                 
-                if hasil_prediksi == 1:
-                    st.markdown('<div class="result-box positive">', unsafe_allow_html=True)
-                    st.error('## ⚠️ **HASIL: RISIKO DIABETES TINGGI**')
-                    st.markdown("""
-                    **Rekomendasi Medis:**
-                    1. **Segera konsultasi dengan dokter** untuk pemeriksaan lebih lanjut
-                    2. **Tes HbA1c** untuk konfirmasi diagnosis
-                    3. **Pantau gula darah** secara rutin (pagi dan setelah makan)
-                    4. **Diet rendah gula** dan karbohidrat sederhana
-                    
-                    **Pola Hidup Sehat:**
-                    - Olahraga 30 menit/hari, 5x seminggu
-                    - Konsumsi makanan tinggi serat
-                    - Hindari makanan olahan dan minuman manis
-                    - Istirahat cukup (7-8 jam/hari)
+                if hasil == 1:
+                    st.markdown('<div class="positive">', unsafe_allow_html=True)
+                    st.error("## ⚠️ HASIL: RISIKO DIABETES TINGGI")
+                    st.write("""
+                    **Rekomendasi:**
+                    1. Konsultasi dokter segera
+                    2. Cek gula darah rutin
+                    3. Diet rendah gula
+                    4. Olahraga teratur
                     """)
                     st.markdown('</div>', unsafe_allow_html=True)
                 else:
-                    st.markdown('<div class="result-box negative">', unsafe_allow_html=True)
-                    st.success('## ✅ **HASIL: RISIKO DIABETES RENDAH**')
-                    st.markdown("""
-                    **Pertahankan Kesehatan Anda:**
-                    1. **Cek kesehatan rutin** setiap 6 bulan sekali
-                    2. **Pola makan seimbang** dengan gizi lengkap
-                    3. **Tetap aktif** secara fisik
-                    4. **Kelola stres** dengan baik
-                    
-                    **Tips Pencegahan:**
-                    - Batasi konsumsi gula tambahan
-                    - Perbanyak sayur dan buah
-                    - Jaga berat badan ideal
-                    - Hindari merokok dan alkohol berlebihan
+                    st.markdown('<div class="negative">', unsafe_allow_html=True)
+                    st.success("## ✅ HASIL: RISIKO DIABETES RENDAH")
+                    st.write("""
+                    **Pertahankan:**
+                    1. Pola makan sehat
+                    2. Aktivitas fisik
+                    3. Cek kesehatan rutin
+                    4. Hindari stres
                     """)
                     st.markdown('</div>', unsafe_allow_html=True)
-                
-                # Tampilkan parameter dalam bentuk chart
-                st.subheader("📊 Visualisasi Parameter Kesehatan")
-                
-                # Radar chart
-                categories = ['Kehamilan', 'Glukosa', 'Tekanan Darah', 'Ketebalan Kulit',
-                            'Insulin', 'BMI', 'Riwayat Diabetes', 'Usia']
-                values = [kehamilan/17*100, glukosa/200*100, tekanan_darah/130*100,
-                         ketebalan_kulit/100*100, insulin/900*100, bmi/70*100,
-                         riwayat_diabetes/2.5*100, usia/100*100]
-                
-                fig = go.Figure(data=go.Scatterpolar(
-                    r=values,
-                    theta=categories,
-                    fill='toself',
-                    line_color='blue'
-                ))
-                
-                fig.update_layout(
-                    polar=dict(
-                        radialaxis=dict(
-                            visible=True,
-                            range=[0, 100]
-                        )),
-                    showlegend=False,
-                    title="Profil Kesehatan Pasien"
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Tombol download hasil
-                hasil_text = f"""
-                HASIL PREDIKSI DIABETES
-                Tanggal: {datetime.now().strftime("%d/%m/%Y %H:%M")}
-                
-                DATA PASIEN:
-                - Kehamilan: {kehamilan}
-                - Glukosa: {glukosa} mg/dL
-                - Tekanan Darah: {tekanan_darah} mm Hg
-                - Ketebalan Kulit: {ketebalan_kulit} mm
-                - Insulin: {insulin} mu U/ml
-                - BMI: {bmi}
-                - Riwayat Diabetes: {riwayat_diabetes}
-                - Usia: {usia} tahun
-                
-                HASIL: {'RISIKO DIABETES TINGGI' if hasil_prediksi == 1 else 'RISIKO DIABETES RENDAH'}
-                
-                Catatan: Hasil ini merupakan prediksi berdasarkan model AI. 
-                Konsultasi dengan dokter tetap diperlukan untuk diagnosis pasti.
-                """
-                
-                st.download_button(
-                    label="📥 Download Hasil Prediksi",
-                    data=hasil_text,
-                    file_name=f"hasil_prediksi_diabetes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain"
-                )
-                
-            else:
-                st.error("Model tidak tersedia. Pastikan file model ada di server.")
+            
+            # Tampilkan data input (untuk semua model)
+            st.subheader("📋 Data yang Dimasukkan")
+            data_dict = {
+                'Parameter': ['Kehamilan', 'Glukosa', 'Tekanan Darah', 'Ketebalan Kulit',
+                             'Insulin', 'BMI', 'Riwayat Diabetes', 'Usia'],
+                'Nilai': [kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
+                         insulin, bmi, riwayat_diabetes, usia],
+                'Status': [
+                    'Normal' if kehamilan <= 5 else 'Tinggi',
+                    'Normal' if glukosa < 100 else 'Perbatasan' if glukosa < 126 else 'Tinggi',
+                    'Normal' if tekanan_darah < 80 else 'Perhatian',
+                    'Normal' if ketebalan_kulit < 30 else 'Tebal',
+                    'Normal' if insulin > 0 else 'Tidak Ada',
+                    'Normal' if bmi < 25 else 'Overweight' if bmi < 30 else 'Obesitas',
+                    'Rendah' if riwayat_diabetes < 0.5 else 'Tinggi',
+                    'Muda' if usia < 40 else 'Dewasa' if usia < 60 else 'Lansia'
+                ]
+            }
+            st.dataframe(pd.DataFrame(data_dict), use_container_width=True)
+            
+        else:
+            st.error("❌ Model tidak tersedia. Pastikan file diabetes_model.sav ada.")
 
 # ==================== HALAMAN ANALISIS ====================
 elif menu == "📈 Analisis":
