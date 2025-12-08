@@ -285,6 +285,31 @@ elif menu == "📊 Prediksi":
                 Catatan: Hasil ini merupakan prediksi berdasarkan model AI. 
                 Konsultasi dengan dokter tetap diperlukan untuk diagnosis pasti.
                 """
+
+                  # Analisis parameter
+                st.subheader("📊 Analisis Parameter")
+                
+                analisis = []
+                if glukosa >= 126:
+                    analisis.append(f"❌ **Glukosa tinggi** ({glukosa} mg/dL)")
+                elif glukosa >= 100:
+                    analisis.append(f"⚠️ **Glukosa perbatasan** ({glukosa} mg/dL)")
+                else:
+                    analisis.append(f"✅ **Glukosa normal** ({glukosa} mg/dL)")
+                    
+                if bmi >= 30:
+                    analisis.append(f"❌ **BMI obesitas** ({bmi})")
+                elif bmi >= 25:
+                    analisis.append(f"⚠️ **BMI overweight** ({bmi})")
+                else:
+                    analisis.append(f"✅ **BMI normal** ({bmi})")
+                    
+                # Tampilkan analisis
+                for item in analisis:
+                    st.write(item)
+                    
+            except Exception as e:
+                st.error(f"Error prediksi: {str(e)}")
                 
                 st.download_button(
                     label="📥 Download Hasil Prediksi",
