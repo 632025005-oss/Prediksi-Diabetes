@@ -495,6 +495,6 @@ footer_col1, footer_col2, footer_col3 = st.columns(3)
 with footer_col1:
     st.caption("🩺 Aplikasi Prediksi Diabetes")
 with footer_col2:
-    st.caption("Untuk tujuan edukasi dan penelitian")
+    st.caption("Untuk tujuan Tugas AI-Regina Ria-632025005")
 with footer_col3:
     st.caption(f"© {datetime.now().year} - Hak Cipta Dilindungi")
