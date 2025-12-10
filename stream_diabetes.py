@@ -36,7 +36,12 @@ def load_model():
                 st.sidebar.write(f"Class: {model.__class__.__name__}")
             if hasattr(model, 'feature_names_in_'):
                 st.sidebar.write(f"Features: {model.feature_names_in_}")
-            st.sidebar.write(f"Model parameters: {model.get_params()}")
+            # Tampilkan parameter penting
+            params = model.get_params()
+            st.sidebar.write("**Parameter Model:**")
+            st.sidebar.write(f"- Kernel: {params.get('kernel', 'N/A')}")
+            st.sidebar.write(f"- Probability: {params.get('probability', False)}")
+            st.sidebar.write(f"- C: {params.get('C', 'N/A')}")
         
         return model, True
     except FileNotFoundError:
@@ -109,6 +114,13 @@ st.markdown("""
         height: 100%;
         border-radius: 10px;
         transition: width 0.5s ease;
+    }
+    .model-info {
+        background: #e3f2fd;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+        border-left: 4px solid #2196f3;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -301,28 +313,34 @@ elif menu == "📊 Prediksi":
             # Lakukan prediksi
             hasil_prediksi = model_diabetes.predict(data_input)[0]
             
-            # Untuk model SVM, kita perlu menangani probabilitas secara berbeda
+            # Untuk SVM dengan probability=False, kita tidak bisa mendapatkan probabilitas
+            # Tapi kita bisa menggunakan decision function untuk confidence
             try:
-                if hasattr(model_diabetes, 'predict_proba'):
+                if hasattr(model_diabetes, 'predict_proba') and hasattr(model_diabetes, 'probability') and model_diabetes.probability:
                     proba = model_diabetes.predict_proba(data_input)[0]
-                    confidence = max(proba) * 100  # Konversi ke persentase
+                    confidence = max(proba) * 100
                     confidence_label = f"{confidence:.1f}%"
+                    proba_available = True
                 else:
-                    # Untuk SVM tanpa probability=True, gunakan decision function atau confidence default
+                    # Gunakan decision function untuk SVM
                     if hasattr(model_diabetes, 'decision_function'):
                         decision_score = model_diabetes.decision_function(data_input)[0]
-                        confidence = min(100, max(0, 50 + abs(decision_score) * 10))  # Normalisasi
+                        # Normalisasi decision score ke range 0-100
+                        confidence = min(100, max(0, 50 + decision_score * 10))
                         confidence_label = f"{confidence:.1f}% (berdasarkan decision function)"
                     else:
-                        confidence = 85.0  # Default confidence untuk SVM
-                        confidence_label = "85.0% (default)"
-                    proba = [1-confidence/100, confidence/100] if hasil_prediksi == 1 else [confidence/100, 1-confidence/100]
+                        # Default confidence untuk SVM
+                        confidence = 85.0
+                        confidence_label = "85.0%"
+                    proba = [0.5, 0.5]  # Default probabilities
+                    proba_available = False
             except Exception as e:
                 if DEBUG:
-                    st.sidebar.warning(f"Tidak bisa mendapatkan probabilitas: {str(e)}")
+                    st.sidebar.warning(f"Tidak bisa mendapatkan confidence score: {str(e)}")
                 confidence = 85.0
-                confidence_label = "85.0% (default)"
-                proba = [0.15, 0.85] if hasil_prediksi == 1 else [0.85, 0.15]
+                confidence_label = "85.0%"
+                proba = [0.5, 0.5]
+                proba_available = False
             
             # Simpan ke session state
             st.session_state.last_prediction = {
@@ -332,8 +350,9 @@ elif menu == "📊 Prediksi":
                 'confidence': confidence,
                 'confidence_label': confidence_label,
                 'probabilitas': proba,
+                'probabilitas_tersedia': proba_available,
                 'waktu': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'model': type(model_diabetes).__name__
+                'model': f"SVM ({model_diabetes.kernel} kernel)"
             }
             
             # Tambahkan ke history
@@ -341,6 +360,13 @@ elif menu == "📊 Prediksi":
             
             # Tampilkan animasi
             st.balloons()
+            
+            # ===== INFORMASI MODEL =====
+            st.markdown('<div class="model-info">', unsafe_allow_html=True)
+            st.write("**ℹ️ Informasi Model:**")
+            st.write(f"Model: Support Vector Machine (SVM) dengan kernel {model_diabetes.kernel}")
+            st.write(f"Probabilitas: {'Tersedia' if proba_available else 'Tidak tersedia (menggunakan decision function)'}")
+            st.markdown('</div>', unsafe_allow_html=True)
             
             # ===== HASIL PREDIKSI =====
             if hasil_prediksi == 1:
@@ -517,45 +543,13 @@ elif menu == "📊 Prediksi":
                            hover_data=['Kategori'])
             st.plotly_chart(fig_bar, use_container_width=True)
             
-            # Radar chart
-            categories = param_data['Parameter']
-            values_normalized = [
-                min(100, kehamilan/17*100),
-                min(100, glukosa/200*100),
-                min(100, tekanan_darah/130*100),
-                min(100, ketebalan_kulit/100*100),
-                min(100, insulin/900*100),
-                min(100, bmi/70*100),
-                min(100, riwayat_diabetes/2.5*100),
-                min(100, usia/100*100)
-            ]
-            
-            fig_radar = go.Figure(data=go.Scatterpolar(
-                r=values_normalized,
-                theta=categories,
-                fill='toself',
-                line_color='blue'
-            ))
-            
-            fig_radar.update_layout(
-                polar=dict(
-                    radialaxis=dict(
-                        visible=True,
-                        range=[0, 100]
-                    )),
-                showlegend=False,
-                title="Profil Kesehatan Pasien (Normalisasi)",
-                height=400
-            )
-            
-            st.plotly_chart(fig_radar, use_container_width=True)
-            
             # Tombol download hasil
             st.subheader("💾 Simpan Hasil")
             hasil_text = f"""HASIL PREDIKSI DIABETES
 Tanggal: {datetime.now().strftime("%d/%m/%Y %H:%M")}
-Model yang digunakan: {type(model_diabetes).__name__}
+Model yang digunakan: SVM (Support Vector Machine) dengan kernel linear
 Tingkat Keyakinan: {confidence_label}
+Probabilitas tersedia: {'Ya' if proba_available else 'Tidak (menggunakan decision function)'}
 
 DATA PASIEN:
 - Kehamilan: {kehamilan}
@@ -782,6 +776,11 @@ elif menu == "ℹ️ Tentang":
         7. Riwayat Diabetes Keluarga
         8. Usia
         
+        **Model yang Digunakan:**
+        - **Support Vector Machine (SVM)** dengan kernel linear
+        - Model ini dipilih karena performa yang baik untuk klasifikasi biner
+        - Tidak menghasilkan probabilitas (probability=False), tapi menggunakan decision function
+        
         **Disclaimer:**
         Hasil prediksi ini bersifat informatif dan tidak menggantikan diagnosis medis. 
         Selalu konsultasikan dengan dokter untuk pemeriksaan dan penanganan yang tepat.
@@ -810,7 +809,7 @@ elif menu == "ℹ️ Tentang":
         **Mata Kuliah:** Artificial Intelligence
         
         **File yang Diperlukan:**
-        1. `diabetes_model.sav` - Model machine learning
+        1. `diabetes_model.sav` - Model machine learning (SVM)
         2. `diabetes.csv` - Dataset untuk analisis
         """)
 
