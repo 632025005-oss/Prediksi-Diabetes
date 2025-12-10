@@ -20,39 +20,20 @@ if 'last_prediction' not in st.session_state:
 if 'predictions_history' not in st.session_state:
     st.session_state.predictions_history = []
 
-# Load model dengan debugging
-DEBUG = True  # Set ke False jika tidak ingin debug info
-
 @st.cache_resource
 def load_model():
     try:
         with open('diabetes_model.sav', 'rb') as file:
             model = pickle.load(file)
-        
-        if DEBUG:
-            st.sidebar.write("🔍 Model Info:")
-            st.sidebar.write(f"Type: {type(model)}")
-            if hasattr(model, '__class__'):
-                st.sidebar.write(f"Class: {model.__class__.__name__}")
-            if hasattr(model, 'feature_names_in_'):
-                st.sidebar.write(f"Features: {model.feature_names_in_}")
-            # Tampilkan parameter penting
-            params = model.get_params()
-            st.sidebar.write("**Parameter Model:**")
-            st.sidebar.write(f"- Kernel: {params.get('kernel', 'N/A')}")
-            st.sidebar.write(f"- Probability: {params.get('probability', False)}")
-            st.sidebar.write(f"- C: {params.get('C', 'N/A')}")
-        
         return model, True
     except FileNotFoundError:
         st.sidebar.error("File 'diabetes_model.sav' tidak ditemukan")
         return None, False
     except Exception as e:
-        if DEBUG:
-            st.sidebar.error(f"Error detail: {str(e)}")
+        st.sidebar.error(f"Error loading model: {str(e)}")
         return None, False
 
-# Load model (HANYA SATU KALI)
+# Load model
 model_diabetes, model_loaded = load_model()
 
 # CSS kustom
@@ -115,13 +96,6 @@ st.markdown("""
         border-radius: 10px;
         transition: width 0.5s ease;
     }
-    .model-info {
-        background: #e3f2fd;
-        padding: 10px;
-        border-radius: 5px;
-        margin: 10px 0;
-        border-left: 4px solid #2196f3;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -141,11 +115,6 @@ with st.sidebar:
     )
     
     st.markdown("---")
-    if DEBUG:
-        if st.button("🔄 Clear Cache & Refresh"):
-            st.cache_resource.clear()
-            st.rerun()
-    
     st.info("""
     **Cara Penggunaan:**
     1. Pilih menu **Prediksi**
@@ -313,34 +282,20 @@ elif menu == "📊 Prediksi":
             # Lakukan prediksi
             hasil_prediksi = model_diabetes.predict(data_input)[0]
             
-            # Untuk SVM dengan probability=False, kita tidak bisa mendapatkan probabilitas
-            # Tapi kita bisa menggunakan decision function untuk confidence
+            # Untuk SVM dengan probability=False, gunakan decision function untuk confidence
             try:
-                if hasattr(model_diabetes, 'predict_proba') and hasattr(model_diabetes, 'probability') and model_diabetes.probability:
-                    proba = model_diabetes.predict_proba(data_input)[0]
-                    confidence = max(proba) * 100
+                if hasattr(model_diabetes, 'decision_function'):
+                    decision_score = model_diabetes.decision_function(data_input)[0]
+                    # Normalisasi decision score ke range 0-100
+                    confidence = min(100, max(0, 50 + decision_score * 10))
                     confidence_label = f"{confidence:.1f}%"
-                    proba_available = True
                 else:
-                    # Gunakan decision function untuk SVM
-                    if hasattr(model_diabetes, 'decision_function'):
-                        decision_score = model_diabetes.decision_function(data_input)[0]
-                        # Normalisasi decision score ke range 0-100
-                        confidence = min(100, max(0, 50 + decision_score * 10))
-                        confidence_label = f"{confidence:.1f}% (berdasarkan decision function)"
-                    else:
-                        # Default confidence untuk SVM
-                        confidence = 85.0
-                        confidence_label = "85.0%"
-                    proba = [0.5, 0.5]  # Default probabilities
-                    proba_available = False
+                    # Default confidence untuk SVM
+                    confidence = 85.0
+                    confidence_label = "85.0%"
             except Exception as e:
-                if DEBUG:
-                    st.sidebar.warning(f"Tidak bisa mendapatkan confidence score: {str(e)}")
                 confidence = 85.0
                 confidence_label = "85.0%"
-                proba = [0.5, 0.5]
-                proba_available = False
             
             # Simpan ke session state
             st.session_state.last_prediction = {
@@ -349,10 +304,8 @@ elif menu == "📊 Prediksi":
                 'hasil': hasil_prediksi,
                 'confidence': confidence,
                 'confidence_label': confidence_label,
-                'probabilitas': proba,
-                'probabilitas_tersedia': proba_available,
                 'waktu': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'model': f"SVM ({model_diabetes.kernel} kernel)"
+                'model': "Support Vector Machine (SVM)"
             }
             
             # Tambahkan ke history
@@ -360,13 +313,6 @@ elif menu == "📊 Prediksi":
             
             # Tampilkan animasi
             st.balloons()
-            
-            # ===== INFORMASI MODEL =====
-            st.markdown('<div class="model-info">', unsafe_allow_html=True)
-            st.write("**ℹ️ Informasi Model:**")
-            st.write(f"Model: Support Vector Machine (SVM) dengan kernel {model_diabetes.kernel}")
-            st.write(f"Probabilitas: {'Tersedia' if proba_available else 'Tidak tersedia (menggunakan decision function)'}")
-            st.markdown('</div>', unsafe_allow_html=True)
             
             # ===== HASIL PREDIKSI =====
             if hasil_prediksi == 1:
@@ -547,9 +493,8 @@ elif menu == "📊 Prediksi":
             st.subheader("💾 Simpan Hasil")
             hasil_text = f"""HASIL PREDIKSI DIABETES
 Tanggal: {datetime.now().strftime("%d/%m/%Y %H:%M")}
-Model yang digunakan: SVM (Support Vector Machine) dengan kernel linear
+Model yang digunakan: Support Vector Machine (SVM)
 Tingkat Keyakinan: {confidence_label}
-Probabilitas tersedia: {'Ya' if proba_available else 'Tidak (menggunakan decision function)'}
 
 DATA PASIEN:
 - Kehamilan: {kehamilan}
@@ -779,7 +724,6 @@ elif menu == "ℹ️ Tentang":
         **Model yang Digunakan:**
         - **Support Vector Machine (SVM)** dengan kernel linear
         - Model ini dipilih karena performa yang baik untuk klasifikasi biner
-        - Tidak menghasilkan probabilitas (probability=False), tapi menggunakan decision function
         
         **Disclaimer:**
         Hasil prediksi ini bersifat informatif dan tidak menggantikan diagnosis medis. 
