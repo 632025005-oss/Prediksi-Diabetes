@@ -36,7 +36,6 @@ def load_model():
                 st.sidebar.write(f"Class: {model.__class__.__name__}")
             if hasattr(model, 'feature_names_in_'):
                 st.sidebar.write(f"Features: {model.feature_names_in_}")
-            st.sidebar.write(f"Model parameters: {model.get_params()}")
         
         return model, True
     except FileNotFoundError:
@@ -97,18 +96,6 @@ st.markdown("""
     .param-danger {
         border-left-color: #dc3545;
         background: #f8d7da;
-    }
-    .confidence-meter {
-        height: 20px;
-        background: #e9ecef;
-        border-radius: 10px;
-        margin: 10px 0;
-        overflow: hidden;
-    }
-    .confidence-fill {
-        height: 100%;
-        border-radius: 10px;
-        transition: width 0.5s ease;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -294,44 +281,25 @@ elif menu == "📊 Prediksi":
     # Proses prediksi ketika tombol ditekan
     if predict_button:
         if model_loaded and model_diabetes is not None:
+            # Ambil nilai dari widget (bukan dari session state)
+            with tab1:
+                # Nilai sudah diambil dari widget di atas
+                pass
+            
             # Format data untuk prediksi
             data_input = np.array([[kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
                                    insulin, bmi, riwayat_diabetes, usia]])
             
             # Lakukan prediksi
             hasil_prediksi = model_diabetes.predict(data_input)[0]
-            
-            # Untuk model SVM, kita perlu menangani probabilitas secara berbeda
-            try:
-                if hasattr(model_diabetes, 'predict_proba'):
-                    proba = model_diabetes.predict_proba(data_input)[0]
-                    confidence = max(proba) * 100  # Konversi ke persentase
-                    confidence_label = f"{confidence:.1f}%"
-                else:
-                    # Untuk SVM tanpa probability=True, gunakan decision function atau confidence default
-                    if hasattr(model_diabetes, 'decision_function'):
-                        decision_score = model_diabetes.decision_function(data_input)[0]
-                        confidence = min(100, max(0, 50 + abs(decision_score) * 10))  # Normalisasi
-                        confidence_label = f"{confidence:.1f}% (berdasarkan decision function)"
-                    else:
-                        confidence = 85.0  # Default confidence untuk SVM
-                        confidence_label = "85.0% (default)"
-                    proba = [1-confidence/100, confidence/100] if hasil_prediksi == 1 else [confidence/100, 1-confidence/100]
-            except Exception as e:
-                if DEBUG:
-                    st.sidebar.warning(f"Tidak bisa mendapatkan probabilitas: {str(e)}")
-                confidence = 85.0
-                confidence_label = "85.0% (default)"
-                proba = [0.15, 0.85] if hasil_prediksi == 1 else [0.85, 0.15]
+            proba = model_diabetes.predict_proba(data_input)[0] if hasattr(model_diabetes, 'predict_proba') else [0, 0]
             
             # Simpan ke session state
             st.session_state.last_prediction = {
                 'data': [kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
                         insulin, bmi, riwayat_diabetes, usia],
                 'hasil': hasil_prediksi,
-                'confidence': confidence,
-                'confidence_label': confidence_label,
-                'probabilitas': proba,
+                'probabilitas': proba.tolist() if hasattr(proba, 'tolist') else proba,
                 'waktu': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 'model': type(model_diabetes).__name__
             }
@@ -346,18 +314,6 @@ elif menu == "📊 Prediksi":
             if hasil_prediksi == 1:
                 st.markdown('<div class="result-box positive">', unsafe_allow_html=True)
                 st.error('## ⚠️ **HASIL: RISIKO DIABETES TINGGI**')
-                
-                # Tampilkan confidence meter
-                st.markdown(f"**Tingkat Keyakinan Model:** {confidence_label}")
-                confidence_percent = confidence
-                confidence_color = "#dc3545" if confidence_percent > 70 else "#ffc107"
-                
-                st.markdown(f"""
-                <div class="confidence-meter">
-                    <div class="confidence-fill" style="width: {confidence_percent}%; background-color: {confidence_color};"></div>
-                </div>
-                """, unsafe_allow_html=True)
-                
                 st.markdown("""
                 **Rekomendasi Medis:**
                 1. **Segera konsultasi dengan dokter** untuk pemeriksaan lebih lanjut
@@ -375,18 +331,6 @@ elif menu == "📊 Prediksi":
             else:
                 st.markdown('<div class="result-box negative">', unsafe_allow_html=True)
                 st.success('## ✅ **HASIL: RISIKO DIABETES RENDAH**')
-                
-                # Tampilkan confidence meter
-                st.markdown(f"**Tingkat Keyakinan Model:** {confidence_label}")
-                confidence_percent = confidence
-                confidence_color = "#28a745" if confidence_percent > 70 else "#ffc107"
-                
-                st.markdown(f"""
-                <div class="confidence-meter">
-                    <div class="confidence-fill" style="width: {confidence_percent}%; background-color: {confidence_color};"></div>
-                </div>
-                """, unsafe_allow_html=True)
-                
                 st.markdown("""
                 **Pertahankan Kesehatan Anda:**
                 1. **Cek kesehatan rutin** setiap 6 bulan sekali
@@ -517,45 +461,10 @@ elif menu == "📊 Prediksi":
                            hover_data=['Kategori'])
             st.plotly_chart(fig_bar, use_container_width=True)
             
-            # Radar chart
-            categories = param_data['Parameter']
-            values_normalized = [
-                min(100, kehamilan/17*100),
-                min(100, glukosa/200*100),
-                min(100, tekanan_darah/130*100),
-                min(100, ketebalan_kulit/100*100),
-                min(100, insulin/900*100),
-                min(100, bmi/70*100),
-                min(100, riwayat_diabetes/2.5*100),
-                min(100, usia/100*100)
-            ]
-            
-            fig_radar = go.Figure(data=go.Scatterpolar(
-                r=values_normalized,
-                theta=categories,
-                fill='toself',
-                line_color='blue'
-            ))
-            
-            fig_radar.update_layout(
-                polar=dict(
-                    radialaxis=dict(
-                        visible=True,
-                        range=[0, 100]
-                    )),
-                showlegend=False,
-                title="Profil Kesehatan Pasien (Normalisasi)",
-                height=400
-            )
-            
-            st.plotly_chart(fig_radar, use_container_width=True)
-            
             # Tombol download hasil
             st.subheader("💾 Simpan Hasil")
             hasil_text = f"""HASIL PREDIKSI DIABETES
 Tanggal: {datetime.now().strftime("%d/%m/%Y %H:%M")}
-Model yang digunakan: {type(model_diabetes).__name__}
-Tingkat Keyakinan: {confidence_label}
 
 DATA PASIEN:
 - Kehamilan: {kehamilan}
@@ -576,7 +485,7 @@ ANALISIS PARAMETER:
 4. {usia_msg}
 5. {insulin_msg}
 
-Catatan: Hasil ini merupakan prediksi berdasarkan model AI (SVM Classifier). 
+Catatan: Hasil ini merupakan prediksi berdasarkan model AI. 
 Konsultasi dengan dokter tetap diperlukan untuk diagnosis pasti.
 """
             
@@ -768,5 +677,58 @@ elif menu == "ℹ️ Tentang":
         
         **Teknologi yang Digunakan:**
         - **Streamlit**: Framework untuk membangun aplikasi web interaktif
-        - **Scikit-learn**: Library Machine Learning untuk model prediksi (SVM Classifier)
-        - **Plotly
+        - **Scikit-learn**: Library Machine Learning untuk model prediksi
+        - **Plotly**: Visualisasi data interaktif
+        - **Pandas & NumPy**: Pengolahan data
+        
+        **Parameter yang Dianalisis:**
+        1. Jumlah Kehamilan
+        2. Kadar Glukosa
+        3. Tekanan Darah
+        4. Ketebalan Kulit
+        5. Insulin Serum
+        6. Indeks Massa Tubuh (BMI)
+        7. Riwayat Diabetes Keluarga
+        8. Usia
+        
+        **Disclaimer:**
+        Hasil prediksi ini bersifat informatif dan tidak menggantikan diagnosis medis. 
+        Selalu konsultasikan dengan dokter untuk pemeriksaan dan penanganan yang tepat.
+        """)
+    
+    with col_about2:
+        st.image("https://img.icons8.com/color/200/000000/artificial-intelligence.png")
+        st.markdown("""
+        <div style='text-align: center'>
+            <h4>🤖 AI-Powered</h4>
+            <p>Ditenagai oleh kecerdasan buatan</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.write("**Versi Aplikasi:** 2.0.0")
+    st.write("**Terakhir Diupdate:** " + datetime.now().strftime("%d %B %Y"))
+    st.write("**Developer:** Regina Ria Aurellia (632025005)")
+    
+    # Kontak
+    with st.expander("📞 Kontak & Support"):
+        st.write("""
+        **Email:** 632025005@student.uksw.edu
+        **Universitas:** Universitas Kristen Satya Wacana Salatiga
+        **Program:** Magister Sains Data
+        **Mata Kuliah:** Artificial Intelligence
+        
+        **File yang Diperlukan:**
+        1. `diabetes_model.sav` - Model machine learning
+        2. `diabetes.csv` - Dataset untuk analisis
+        """)
+
+# Footer
+st.markdown("---")
+footer_col1, footer_col2, footer_col3 = st.columns(3)
+with footer_col1:
+    st.caption("🩺 Aplikasi Prediksi Diabetes")
+with footer_col2:
+    st.caption("Regina Ria Aurellia - 632025005")
+with footer_col3:
+    st.caption(f"© {datetime.now().year} - Tugas Artificial Intelligence")
