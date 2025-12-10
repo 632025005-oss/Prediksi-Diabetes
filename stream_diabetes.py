@@ -48,7 +48,7 @@ st.markdown("""
 
 # Judul dengan style
 st.markdown('<h1 class="main-header">🏥 Aplikasi Prediksi Diabetes</h1>', unsafe_allow_html=True)
-st.markdown("***Aplikasi untuk memenuhi tugas Artificial intelligence***")
+st.markdown("***Aplikasi untuk memenuhi tugas Artificial intelligence-Magister Sains Data-Universitas Kristen Satya Wacana Salatiga***")
 st.markdown("***Regina Ria Aurellia (632025005)***")
 
 # Sidebar untuk navigasi
@@ -496,6 +496,6 @@ footer_col1, footer_col2, footer_col3 = st.columns(3)
 with footer_col1:
     st.caption("🩺 Aplikasi Prediksi Diabetes")
 with footer_col2:
-    st.caption("Untuk tujuan Tugas AI-Regina Ria-632025005")
+    st.caption("Regina Ria Aurellia-632025005")
 with footer_col3:
     st.caption(f"© {datetime.now().year} - Hak Cipta Dilindungi")
