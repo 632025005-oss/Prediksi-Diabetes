@@ -6,8 +6,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 
-# Debug mode
-DEBUG = False  # Set True untuk melihat debug info
 
 # Konfigurasi halaman
 st.set_page_config(
@@ -148,26 +146,6 @@ if menu == "🏠 Beranda":
 # ==================== HALAMAN PREDIKSI ====================
 elif menu == "📊 Prediksi":
     st.header("🔍 Prediksi Risiko Diabetes")
-
-    # Di halaman prediksi, tambahkan debugging info:
-if DEBUG and model_loaded:
-    st.sidebar.subheader("🧪 Debug Info")
-    
-    # Test prediction dengan berbagai input
-    test_cases = [
-        ("Risiko Rendah", [1, 89, 66, 23, 94, 28.1, 0.167, 21]),
-        ("Risiko Tinggi", [6, 148, 72, 35, 0, 33.6, 0.627, 50]),
-        ("Input Saat Ini", [kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
-                           insulin, bmi, riwayat_diabetes, usia])
-    ]
-    
-    for name, data in test_cases:
-        test_array = np.array([data])
-        try:
-            pred = model_diabetes.predict(test_array)[0]
-            st.sidebar.write(f"{name}: {pred} ({'Diabetes' if pred==1 else 'Sehat'})")
-        except:
-            st.sidebar.write(f"{name}: Error")
     
     tab1, tab2 = st.tabs(["📝 Input Data", "⚡ Input Cepat"])
     
