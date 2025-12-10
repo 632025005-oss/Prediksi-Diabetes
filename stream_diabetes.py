@@ -48,7 +48,7 @@ st.markdown("""
 
 # Judul dengan style
 st.markdown('<h1 class="main-header">🏥 Aplikasi Prediksi Diabetes</h1>', unsafe_allow_html=True)
-st.markdown("***Aplikasi untuk memenuhi tugas Artificial intelligence-Magister Sains Data-Universitas Kristen Satya Wacana Salatiga***")
+st.markdown("***Tugas Artificial Intelligence - Magister Sains Data - Universitas Kristen Satya Wacana Salatiga***")
 st.markdown("***Regina Ria Aurellia (632025005)***")
 
 # Sidebar untuk navigasi
