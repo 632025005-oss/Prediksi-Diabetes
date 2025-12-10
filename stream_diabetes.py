@@ -48,7 +48,8 @@ st.markdown("""
 
 # Judul dengan style
 st.markdown('<h1 class="main-header">🏥 Aplikasi Prediksi Diabetes</h1>', unsafe_allow_html=True)
-st.markdown("***Aplikasi untuk mendeteksi risiko diabetes berdasarkan data medis***")
+st.markdown("***Aplikasi untuk memenuhi tugas Artificial intelligence***")
+st.markdown("***Regina Ria Aurellia (632025005)***")
 
 # Sidebar untuk navigasi
 with st.sidebar:
