@@ -6,6 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 
+
 # Konfigurasi halaman
 st.set_page_config(
     page_title="Prediksi Diabetes",
@@ -14,39 +15,30 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Inisialisasi session state
-if 'last_prediction' not in st.session_state:
-    st.session_state.last_prediction = None
-if 'predictions_history' not in st.session_state:
-    st.session_state.predictions_history = []
-
-# Load model dengan debugging
-DEBUG = True  # Set ke False jika tidak ingin debug info
-
 @st.cache_resource
 def load_model():
+    """Load model dengan error handling"""
     try:
         with open('diabetes_model.sav', 'rb') as file:
             model = pickle.load(file)
         
-        if DEBUG:
-            st.sidebar.write("🔍 Model Info:")
-            st.sidebar.write(f"Type: {type(model)}")
-            if hasattr(model, '__class__'):
-                st.sidebar.write(f"Class: {model.__class__.__name__}")
-            if hasattr(model, 'feature_names_in_'):
-                st.sidebar.write(f"Features: {model.feature_names_in_}")
+        # Debug info (opsional)
+        st.sidebar.success("✅ Model berhasil dimuat")
+        if hasattr(model, '__class__'):
+            st.sidebar.write(f"Model type: {model.__class__.__name__}")
         
-        return model, True
+        return model
     except FileNotFoundError:
-        st.sidebar.error("File 'diabetes_model.sav' tidak ditemukan")
-        return None, False
+        st.sidebar.error("❌ File model tidak ditemukan")
+        st.sidebar.info("Pastikan 'diabetes_model.sav' ada di folder yang sama")
+        return None
     except Exception as e:
-        if DEBUG:
-            st.sidebar.error(f"Error detail: {str(e)}")
-        return None, False
+        st.sidebar.error(f"❌ Error loading model: {str(e)}")
+        return None
 
-# Load model (HANYA SATU KALI)
+# Load model
+model_diabetes = load_model()
+model_loaded = model_diabetes is not None
 model_diabetes, model_loaded = load_model()
 
 # CSS kustom
@@ -78,25 +70,6 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         margin-bottom: 1rem;
     }
-    .param-analysis {
-        background: #f8f9fa;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 0.5rem 0;
-        border-left: 4px solid #6c757d;
-    }
-    .param-good {
-        border-left-color: #28a745;
-        background: #d4edda;
-    }
-    .param-warning {
-        border-left-color: #ffc107;
-        background: #fff3cd;
-    }
-    .param-danger {
-        border-left-color: #dc3545;
-        background: #f8d7da;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -116,11 +89,6 @@ with st.sidebar:
     )
     
     st.markdown("---")
-    if DEBUG:
-        if st.button("🔄 Clear Cache & Refresh"):
-            st.cache_resource.clear()
-            st.rerun()
-    
     st.info("""
     **Cara Penggunaan:**
     1. Pilih menu **Prediksi**
@@ -128,6 +96,18 @@ with st.sidebar:
     3. Klik tombol **Prediksi**
     4. Lihat hasil dan rekomendasi
     """)
+
+# Load model
+@st.cache_resource
+def load_model():
+    try:
+        with open('diabetes_model.sav', 'rb') as file:
+            model = pickle.load(file)
+        return model, True
+    except:
+        return None, False
+
+model_diabetes, model_loaded = load_model()
 
 # ==================== HALAMAN BERANDA ====================
 if menu == "🏠 Beranda":
@@ -172,44 +152,46 @@ elif menu == "📊 Prediksi":
     
     tab1, tab2 = st.tabs(["📝 Input Data", "⚡ Input Cepat"])
     
-    # Inisialisasi variabel dengan default values
-    kehamilan = 3
-    glukosa = 117
-    tekanan_darah = 72
-    ketebalan_kulit = 23
-    insulin = 30
-    bmi = 32.0
-    riwayat_diabetes = 0.3725
-    usia = 29
+    # Inisialisasi variabel
+    kehamilan, glukosa, tekanan_darah, ketebalan_kulit = 3, 117, 72, 23
+    insulin, bmi, riwayat_diabetes, usia = 30, 32.0, 0.3725, 29
     
     with tab1:
         col1, col2 = st.columns(2)
         
         with col1:
             st.subheader("Data Medis")
-            kehamilan = st.slider('Jumlah Kehamilan', 0, 17, kehamilan, 
-                                 help="Total kehamilan yang pernah dialami", key="kehamilan_input")
-            glukosa = st.number_input('Kadar Glukosa (mg/dL)', 0, 200, glukosa,
-                                     help="Kadar glukosa darah puasa", key="glukosa_input")
-            tekanan_darah = st.number_input('Tekanan Darah (mm Hg)', 0, 130, tekanan_darah, key="tekanan_input")
-            ketebalan_kulit = st.number_input('Ketebalan Kulit (mm)', 0, 100, ketebalan_kulit, key="kulit_input")
+            kehamilan = st.slider('Jumlah Kehamilan', 0, 17, 3, 
+                                 help="Total kehamilan yang pernah dialami",
+                                 key="kehamilan_input")
+            glukosa = st.number_input('Kadar Glukosa (mg/dL)', 0, 200, 117,
+                                     help="Kadar glukosa darah puasa",
+                                     key="glukosa_input")
+            tekanan_darah = st.number_input('Tekanan Darah (mm Hg)', 0, 130, 72,
+                                           key="tekanan_darah_input")
+            ketebalan_kulit = st.number_input('Ketebalan Kulit (mm)', 0, 100, 23,
+                                             key="ketebalan_kulit_input")
         
         with col2:
             st.subheader("Data Fisik")
-            insulin = st.number_input('Insulin Serum (mu U/ml)', 0, 900, insulin, key="insulin_input")
-            bmi = st.number_input('Indeks Massa Tubuh (BMI)', 0.0, 70.0, bmi, step=0.1, key="bmi_input")
-            riwayat_diabetes = st.number_input('Skor Riwayat Diabetes Keluarga', 0.0, 2.5, riwayat_diabetes, step=0.01, key="riwayat_input")
-            usia = st.number_input('Usia (tahun)', 1, 100, usia, key="usia_input")
+            insulin = st.number_input('Insulin Serum (mu U/ml)', 0, 900, 30,
+                                     key="insulin_input")
+            bmi = st.number_input('Indeks Massa Tubuh (BMI)', 0.0, 70.0, 32.0, step=0.1,
+                                 key="bmi_input")
+            riwayat_diabetes = st.number_input('Skor Riwayat Diabetes Keluarga', 0.0, 2.5, 0.3725, step=0.01,
+                                              key="riwayat_input")
+            usia = st.number_input('Usia (tahun)', 1, 100, 29,
+                                  key="usia_input")
     
     with tab2:
         st.write("Pilih contoh data pasien:")
         contoh_data = st.selectbox(
             "Pilihan Contoh:",
             ["Pasien Standar", "Risiko Rendah", "Risiko Tinggi", "Lansia", "Ibu Hamil"],
-            key="contoh_select"
+            key="contoh_data_select"
         )
         
-        # Update values based on selection
+        # Reset nilai berdasarkan pilihan
         if contoh_data == "Pasien Standar":
             kehamilan, glukosa, tekanan_darah, ketebalan_kulit = 3, 117, 72, 23
             insulin, bmi, riwayat_diabetes, usia = 30, 32.0, 0.3725, 29
@@ -225,7 +207,7 @@ elif menu == "📊 Prediksi":
         else:  # Ibu Hamil
             kehamilan, glukosa, tekanan_darah, ketebalan_kulit = 5, 130, 70, 25
             insulin, bmi, riwayat_diabetes, usia = 100, 30.0, 0.300, 32
-        
+            
         # Tampilkan nilai yang dipilih
         data_contoh = pd.DataFrame({
             'Parameter': ['Kehamilan', 'Glukosa', 'Tekanan Darah', 'Ketebalan Kulit',
@@ -235,49 +217,56 @@ elif menu == "📊 Prediksi":
         })
         st.dataframe(data_contoh, use_container_width=True)
         
-        # Update widget values in tab1
-        for key, value in zip(["kehamilan_input", "glukosa_input", "tekanan_input", "kulit_input",
-                              "insulin_input", "bmi_input", "riwayat_input", "usia_input"],
-                             [kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
-                              insulin, bmi, riwayat_diabetes, usia]):
-            if key in st.session_state:
-                st.session_state[key] = value
+        # Update nilai di tab input dengan session state
+        st.session_state.kehamilan_input = kehamilan
+        st.session_state.glukosa_input = glukosa
+        st.session_state.tekanan_darah_input = tekanan_darah
+        st.session_state.ketebalan_kulit_input = ketebalan_kulit
+        st.session_state.insulin_input = insulin
+        st.session_state.bmi_input = bmi
+        st.session_state.riwayat_input = riwayat_diabetes
+        st.session_state.usia_input = usia
     
     st.markdown("---")
     
-    # Tombol prediksi
+    # Tombol prediksi dengan key yang unik
     col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
     with col_btn2:
-        predict_button = st.button('🚀 LAKUKAN PREDIKSI', type="primary", use_container_width=True, key="prediksi_button")
+        predict_button = st.button('🚀 LAKUKAN PREDIKSI', 
+                                 type="primary", 
+                                 use_container_width=True,
+                                 key="predict_button")
     
-    # Proses prediksi ketika tombol ditekan
+    # Logika prediksi (dipisah dari button untuk menghindari rerun)
     if predict_button:
-        if model_loaded and model_diabetes is not None:
-            # Format data untuk prediksi
+        if model_loaded:
+            # Format data
             data_input = np.array([[kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
                                    insulin, bmi, riwayat_diabetes, usia]])
             
-            # Lakukan prediksi
+            # Prediksi
             hasil_prediksi = model_diabetes.predict(data_input)[0]
-            proba = model_diabetes.predict_proba(data_input)[0] if hasattr(model_diabetes, 'predict_proba') else [0, 0]
             
             # Simpan ke session state
             st.session_state.last_prediction = {
                 'data': [kehamilan, glukosa, tekanan_darah, ketebalan_kulit,
                         insulin, bmi, riwayat_diabetes, usia],
                 'hasil': hasil_prediksi,
-                'probabilitas': proba.tolist() if hasattr(proba, 'tolist') else proba,
                 'waktu': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 'model': type(model_diabetes).__name__
             }
             
-            # Tambahkan ke history
-            st.session_state.predictions_history.append(st.session_state.last_prediction.copy())
+            # Simpan ke history
+            st.session_state.predictions_history.append(
+                st.session_state.last_prediction.copy()
+            )
             
-            # Tampilkan animasi
+            # Tampilkan hasil
             st.balloons()
             
-            # ===== HASIL PREDIKSI =====
+            # Tampilkan hasil prediksi
+            st.markdown("## 📊 Hasil Prediksi")
+            
             if hasil_prediksi == 1:
                 st.markdown('<div class="result-box positive">', unsafe_allow_html=True)
                 st.error('## ⚠️ **HASIL: RISIKO DIABETES TINGGI**')
@@ -285,14 +274,8 @@ elif menu == "📊 Prediksi":
                 **Rekomendasi Medis:**
                 1. **Segera konsultasi dengan dokter** untuk pemeriksaan lebih lanjut
                 2. **Tes HbA1c** untuk konfirmasi diagnosis
-                3. **Pantau gula darah** secara rutin (pagi dan setelah makan)
+                3. **Pantau gula darah** secara rutin
                 4. **Diet rendah gula** dan karbohidrat sederhana
-                
-                **Pola Hidup Sehat:**
-                - Olahraga 30 menit/hari, 5x seminggu
-                - Konsumsi makanan tinggi serat
-                - Hindari makanan olahan dan minuman manis
-                - Istirahat cukup (7-8 jam/hari)
                 """)
                 st.markdown('</div>', unsafe_allow_html=True)
             else:
@@ -300,372 +283,127 @@ elif menu == "📊 Prediksi":
                 st.success('## ✅ **HASIL: RISIKO DIABETES RENDAH**')
                 st.markdown("""
                 **Pertahankan Kesehatan Anda:**
-                1. **Cek kesehatan rutin** setiap 6 bulan sekali
+                1. **Cek kesehatan rutin** setiap 6 bulan
                 2. **Pola makan seimbang** dengan gizi lengkap
                 3. **Tetap aktif** secara fisik
                 4. **Kelola stres** dengan baik
-                
-                **Tips Pencegahan:**
-                - Batasi konsumsi gula tambahan
-                - Perbanyak sayur dan buah
-                - Jaga berat badan ideal
-                - Hindari merokok dan alkohol berlebihan
                 """)
                 st.markdown('</div>', unsafe_allow_html=True)
-            
-            # ===== ANALISIS PARAMETER (INI YANG AKAN BERUBAH) =====
-            st.subheader("📊 Analisis Parameter")
-            
-            # Buat DataFrame untuk analisis parameter
-            param_data = {
-                'Parameter': ['Kehamilan', 'Glukosa', 'Tekanan Darah', 'Ketebalan Kulit', 
-                            'Insulin', 'BMI', 'Riwayat Diabetes', 'Usia'],
-                'Nilai': [kehamilan, glukosa, tekanan_darah, ketebalan_kulit, 
-                         insulin, bmi, riwayat_diabetes, usia],
-                'Status': ['Normal'] * 8,
-                'Kategori': ['Normal'] * 8
-            }
-            
-            # Analisis Glukosa
-            if glukosa >= 126:
-                param_data['Status'][1] = 'danger'
-                param_data['Kategori'][1] = 'Tinggi (≥126 mg/dL)'
-                glukosa_class = "param-danger"
-                glukosa_msg = f"❌ **Glukosa tinggi** ({glukosa} mg/dL) - Di atas batas diabetes (≥126 mg/dL)"
-            elif glukosa >= 100:
-                param_data['Status'][1] = 'warning'
-                param_data['Kategori'][1] = 'Pra-diabetes (100-125 mg/dL)'
-                glukosa_class = "param-warning"
-                glukosa_msg = f"⚠️ **Glukosa perbatasan** ({glukosa} mg/dL) - Pra-diabetes"
-            else:
-                param_data['Status'][1] = 'good'
-                param_data['Kategori'][1] = 'Normal (<100 mg/dL)'
-                glukosa_class = "param-good"
-                glukosa_msg = f"✅ **Glukosa normal** ({glukosa} mg/dL)"
-            
-            # Analisis BMI
-            if bmi >= 30:
-                param_data['Status'][5] = 'danger'
-                param_data['Kategori'][5] = 'Obesitas (≥30)'
-                bmi_class = "param-danger"
-                bmi_msg = f"❌ **BMI obesitas** ({bmi}) - Faktor risiko tinggi"
-            elif bmi >= 25:
-                param_data['Status'][5] = 'warning'
-                param_data['Kategori'][5] = 'Overweight (25-29.9)'
-                bmi_class = "param-warning"
-                bmi_msg = f"⚠️ **BMI overweight** ({bmi}) - Perlu penurunan berat badan"
-            else:
-                param_data['Status'][5] = 'good'
-                param_data['Kategori'][5] = 'Normal (18.5-24.9)'
-                bmi_class = "param-good"
-                bmi_msg = f"✅ **BMI normal** ({bmi})"
-            
-            # Analisis Tekanan Darah
-            if tekanan_darah >= 140:
-                param_data['Status'][2] = 'danger'
-                param_data['Kategori'][2] = 'Hipertensi (≥140 mmHg)'
-                tekanan_class = "param-danger"
-                tekanan_msg = f"❌ **Tekanan darah tinggi** ({tekanan_darah} mmHg) - Hipertensi"
-            elif tekanan_darah >= 130:
-                param_data['Status'][2] = 'warning'
-                param_data['Kategori'][2] = 'Pra-hipertensi (130-139 mmHg)'
-                tekanan_class = "param-warning"
-                tekanan_msg = f"⚠️ **Tekanan darah perbatasan** ({tekanan_darah} mmHg) - Perlu pemantauan"
-            else:
-                param_data['Status'][2] = 'good'
-                param_data['Kategori'][2] = 'Normal (<130 mmHg)'
-                tekanan_class = "param-good"
-                tekanan_msg = f"✅ **Tekanan darah normal** ({tekanan_darah} mmHg)"
-            
-            # Analisis Usia
-            if usia >= 45:
-                param_data['Status'][7] = 'warning'
-                param_data['Kategori'][7] = 'Risiko Tinggi (≥45 tahun)'
-                usia_class = "param-warning"
-                usia_msg = f"⚠️ **Usia ≥45 tahun** ({usia} tahun) - Faktor risiko diabetes meningkat"
-            else:
-                param_data['Status'][7] = 'good'
-                param_data['Kategori'][7] = 'Normal (<45 tahun)'
-                usia_class = "param-good"
-                usia_msg = f"✅ **Usia <45 tahun** ({usia} tahun) - Risiko lebih rendah"
-            
-            # Analisis Insulin
-            if insulin > 100:
-                param_data['Status'][4] = 'warning'
-                param_data['Kategori'][4] = 'Tinggi (>100 μU/mL)'
-                insulin_class = "param-warning"
-                insulin_msg = f"⚠️ **Insulin tinggi** ({insulin} μU/mL) - Kemungkinan resistensi insulin"
-            elif insulin < 25:
-                param_data['Status'][4] = 'warning'
-                param_data['Kategori'][4] = 'Rendah (<25 μU/mL)'
-                insulin_class = "param-warning"
-                insulin_msg = f"⚠️ **Insulin rendah** ({insulin} μU/mL) - Perlu evaluasi fungsi pankreas"
-            else:
-                param_data['Status'][4] = 'good'
-                param_data['Kategori'][4] = 'Normal (25-100 μU/mL)'
-                insulin_class = "param-good"
-                insulin_msg = f"✅ **Insulin normal** ({insulin} μU/mL)"
-            
-            # Tampilkan analisis per parameter
-            st.markdown(f'<div class="param-analysis {glukosa_class}">{glukosa_msg}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="param-analysis {bmi_class}">{bmi_msg}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="param-analysis {tekanan_class}">{tekanan_msg}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="param-analysis {usia_class}">{usia_msg}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="param-analysis {insulin_class}">{insulin_msg}</div>', unsafe_allow_html=True)
-            
-            # Tampilkan tabel parameter
-            param_df = pd.DataFrame(param_data)
-            st.subheader("📋 Tabel Parameter Pasien")
-            st.dataframe(param_df, use_container_width=True)
-            
-            # Visualisasi parameter
-            st.subheader("📊 Visualisasi Parameter Kesehatan")
-            
-            # Bar chart untuk parameter
-            fig_bar = px.bar(param_df, x='Parameter', y='Nilai', color='Status',
-                           color_discrete_map={'good': 'green', 'warning': 'orange', 'danger': 'red'},
-                           title="Nilai Parameter Kesehatan",
-                           hover_data=['Kategori'])
-            st.plotly_chart(fig_bar, use_container_width=True)
-            
-            # Radar chart
-            categories = param_data['Parameter']
-            values_normalized = [
-                min(100, kehamilan/17*100),
-                min(100, glukosa/200*100),
-                min(100, tekanan_darah/130*100),
-                min(100, ketebalan_kulit/100*100),
-                min(100, insulin/900*100),
-                min(100, bmi/70*100),
-                min(100, riwayat_diabetes/2.5*100),
-                min(100, usia/100*100)
-            ]
-            
-            fig_radar = go.Figure(data=go.Scatterpolar(
-                r=values_normalized,
-                theta=categories,
-                fill='toself',
-                line_color='blue'
-            ))
-            
-            fig_radar.update_layout(
-                polar=dict(
-                    radialaxis=dict(
-                        visible=True,
-                        range=[0, 100]
-                    )),
-                showlegend=False,
-                title="Profil Kesehatan Pasien (Normalisasi)",
-                height=400
-            )
-            
-            st.plotly_chart(fig_radar, use_container_width=True)
-            
-            # Tombol download hasil
-            st.subheader("💾 Simpan Hasil")
-            hasil_text = f"""HASIL PREDIKSI DIABETES
-Tanggal: {datetime.now().strftime("%d/%m/%Y %H:%M")}
-
-DATA PASIEN:
-- Kehamilan: {kehamilan}
-- Glukosa: {glukosa} mg/dL
-- Tekanan Darah: {tekanan_darah} mm Hg
-- Ketebalan Kulit: {ketebalan_kulit} mm
-- Insulin: {insulin} mu U/ml
-- BMI: {bmi}
-- Riwayat Diabetes: {riwayat_diabetes}
-- Usia: {usia} tahun
-
-HASIL: {'RISIKO DIABETES TINGGI' if hasil_prediksi == 1 else 'RISIKO DIABETES RENDAH'}
-
-ANALISIS PARAMETER:
-1. {glukosa_msg}
-2. {bmi_msg}
-3. {tekanan_msg}
-4. {usia_msg}
-5. {insulin_msg}
-
-Catatan: Hasil ini merupakan prediksi berdasarkan model AI. 
-Konsultasi dengan dokter tetap diperlukan untuk diagnosis pasti.
-"""
-            
-            col_dl1, col_dl2 = st.columns(2)
-            with col_dl1:
-                st.download_button(
-                    label="📥 Download Hasil Prediksi",
-                    data=hasil_text,
-                    file_name=f"hasil_prediksi_diabetes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain",
-                    key="download_txt"
-                )
-            with col_dl2:
-                # Simpan data ke CSV
-                hasil_df = pd.DataFrame({
-                    'Parameter': param_data['Parameter'],
-                    'Nilai': param_data['Nilai'],
-                    'Kategori': param_data['Kategori']
-                })
-                csv = hasil_df.to_csv(index=False)
-                st.download_button(
-                    label="📊 Download Data CSV",
-                    data=csv,
-                    file_name=f"data_pasien_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv",
-                    key="download_csv"
-                )
-                
-        else:
-            st.error("Model tidak tersedia. Pastikan file 'diabetes_model.sav' ada di server.")
-
 # ==================== HALAMAN ANALISIS ====================
 elif menu == "📈 Analisis":
     st.header("📈 Analisis Data Diabetes")
     
-    try:
-        # Load data
-        df = pd.read_csv("diabetes.csv")
-        
-        # Ubah nama kolom
-        df_indonesia = df.rename(columns={
-            'Pregnancies': 'Kehamilan',
-            'Glucose': 'Glukosa',
-            'BloodPressure': 'Tekanan Darah',
-            'SkinThickness': 'Ketebalan Kulit',
-            'Insulin': 'Insulin',
-            'BMI': 'BMI',
-            'DiabetesPedigreeFunction': 'Riwayat Diabetes',
-            'Age': 'Usia',
-            'Outcome': 'Diabetes'
-        })
-        
-        # Tabs untuk berbagai visualisasi
-        tab1, tab2, tab3 = st.tabs(["Distribusi Data", "Korelasi", "Perbandingan"])
-        
-        with tab1:
-            col1, col2 = st.columns(2)
-            with col1:
-                parameter = st.selectbox(
-                    "Pilih Parameter:",
-                    ['Glukosa', 'Usia', 'BMI', 'Tekanan Darah'],
-                    key="param_dist"
-                )
-                
-                fig = px.histogram(df_indonesia, x=parameter, 
-                                 color='Diabetes',
-                                 title=f'Distribusi {parameter}',
-                                 nbins=20,
-                                 color_discrete_map={0: 'green', 1: 'red'})
-                st.plotly_chart(fig, use_container_width=True)
+    # Load data
+    df = pd.read_csv("diabetes.csv")
+    
+    # Ubah nama kolom
+    df_indonesia = df.rename(columns={
+        'Pregnancies': 'Kehamilan',
+        'Glucose': 'Glukosa',
+        'BloodPressure': 'Tekanan Darah',
+        'SkinThickness': 'Ketebalan Kulit',
+        'Insulin': 'Insulin',
+        'BMI': 'BMI',
+        'DiabetesPedigreeFunction': 'Riwayat Diabetes',
+        'Age': 'Usia',
+        'Outcome': 'Diabetes'
+    })
+    
+    # Tabs untuk berbagai visualisasi
+    tab1, tab2, tab3 = st.tabs(["Distribusi Data", "Korelasi", "Perbandingan"])
+    
+    with tab1:
+        col1, col2 = st.columns(2)
+        with col1:
+            parameter = st.selectbox(
+                "Pilih Parameter:",
+                ['Glukosa', 'Usia', 'BMI', 'Tekanan Darah']
+            )
             
-            with col2:
-                # Pie chart hasil diabetes
-                diabetes_count = df_indonesia['Diabetes'].value_counts()
-                fig = px.pie(values=diabetes_count.values,
-                            names=['Tidak Diabetes', 'Diabetes'],
-                            title='Proporsi Diabetes dalam Dataset',
-                            color=['Tidak Diabetes', 'Diabetes'],
-                            color_discrete_map={'Tidak Diabetes':'green', 'Diabetes':'red'})
-                st.plotly_chart(fig, use_container_width=True)
-        
-        with tab2:
-            # Heatmap korelasi
-            fig = px.imshow(df.corr(),
-                           title='Korelasi Antar Parameter',
-                           color_continuous_scale='RdBu',
-                           text_auto=True)
+            fig = px.histogram(df_indonesia, x=parameter, 
+                             color='Diabetes',
+                             title=f'Distribusi {parameter}',
+                             nbins=20)
             st.plotly_chart(fig, use_container_width=True)
-            
-            st.write("""
-            **Interpretasi:**
-            - Warna biru: Korelasi positif (semakin besar nilai satu, semakin besar nilai lainnya)
-            - Warna merah: Korelasi negatif (semakin besar nilai satu, semakin kecil nilai lainnya)
-            - Glukosa memiliki korelasi tinggi dengan hasil diabetes
-            """)
         
-        with tab3:
-            # Scatter plot interaktif
-            col_x, col_y = st.columns(2)
-            with col_x:
-                x_axis = st.selectbox("Sumbu X:", df_indonesia.columns[:-1], index=1, key="x_axis")
-            with col_y:
-                y_axis = st.selectbox("Sumbu Y:", df_indonesia.columns[:-1], index=6, key="y_axis")
-            
-            fig = px.scatter(df_indonesia, x=x_axis, y=y_axis,
-                            color='Diabetes',
-                            size='Usia',
-                            hover_data=['Kehamilan', 'BMI'],
-                            title=f'{x_axis} vs {y_axis}',
-                            color_discrete_map={0: 'green', 1: 'red'})
+        with col2:
+            # Pie chart hasil diabetes
+            diabetes_count = df_indonesia['Diabetes'].value_counts()
+            fig = px.pie(values=diabetes_count.values,
+                        names=['Tidak Diabetes', 'Diabetes'],
+                        title='Proporsi Diabetes dalam Dataset',
+                        color=['Tidak Diabetes', 'Diabetes'],
+                        color_discrete_map={'Tidak Diabetes':'green', 'Diabetes':'red'})
             st.plotly_chart(fig, use_container_width=True)
-            
-    except FileNotFoundError:
-        st.error("File 'diabetes.csv' tidak ditemukan. Pastikan file ada di folder yang sama.")
-    except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
+    
+    with tab2:
+        # Heatmap korelasi
+        fig = px.imshow(df.corr(),
+                       title='Korelasi Antar Parameter',
+                       color_continuous_scale='RdBu')
+        st.plotly_chart(fig, use_container_width=True)
+        
+        st.write("""
+        **Interpretasi:**
+        - Warna biru: Korelasi positif (semakin besar nilai satu, semakin besar nilai lainnya)
+        - Warna merah: Korelasi negatif (semakin besar nilai satu, semakin kecil nilai lainnya)
+        - Glukosa memiliki korelasi tinggi dengan hasil diabetes
+        """)
+    
+    with tab3:
+        # Scatter plot interaktif
+        x_axis = st.selectbox("Sumbu X:", df_indonesia.columns[:-1], index=1)
+        y_axis = st.selectbox("Sumbu Y:", df_indonesia.columns[:-1], index=6)
+        
+        fig = px.scatter(df_indonesia, x=x_axis, y=y_axis,
+                        color='Diabetes',
+                        size='Usia',
+                        hover_data=['Kehamilan', 'BMI'],
+                        title=f'{x_axis} vs {y_axis}')
+        st.plotly_chart(fig, use_container_width=True)
 
 # ==================== HALAMAN DATA ====================
 elif menu == "📋 Data":
     st.header("📋 Dataset Diabetes")
     
-    try:
-        df = pd.read_csv("diabetes.csv")
-        
-        # Tampilkan data
-        st.dataframe(df, use_container_width=True, height=400)
-        
-        # Statistik
-        st.subheader("📊 Statistik Dataset")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Total Pasien", len(df))
-        with col2:
-            st.metric("Pasien Diabetes", df['Outcome'].sum())
-        with col3:
-            st.metric("Persentase Diabetes", f"{df['Outcome'].mean()*100:.1f}%")
-        
-        # Filter data
-        st.subheader("🔍 Filter Data")
-        col_filter1, col_filter2 = st.columns(2)
-        with col_filter1:
-            min_age = st.slider("Usia Minimum", int(df['Age'].min()), int(df['Age'].max()), 20, key="filter_age")
-        with col_filter2:
-            min_glucose = st.slider("Glukosa Minimum", int(df['Glucose'].min()), int(df['Glucose'].max()), 100, key="filter_glucose")
-        
-        filtered_df = df[(df['Age'] >= min_age) & (df['Glucose'] >= min_glucose)]
-        st.write(f"Menampilkan {len(filtered_df)} dari {len(df)} pasien")
-        st.dataframe(filtered_df, use_container_width=True)
-        
-        # Ekspor data
-        st.subheader("💾 Export Data")
-        col_exp1, col_exp2 = st.columns(2)
-        with col_exp1:
-            if st.button("📥 Download Data Filtered", key="btn_filtered"):
-                csv = filtered_df.to_csv(index=False)
-                st.download_button(
-                    label="Download CSV",
-                    data=csv,
-                    file_name="data_diabetes_filtered.csv",
-                    mime="text/csv",
-                    key="dl_filtered"
-                )
-        with col_exp2:
-            if st.button("📥 Download All Data", key="btn_all"):
-                csv = df.to_csv(index=False)
-                st.download_button(
-                    label="Download CSV",
-                    data=csv,
-                    file_name="diabetes_dataset.csv",
-                    mime="text/csv",
-                    key="dl_all"
-                )
-                
-    except FileNotFoundError:
-        st.error("File 'diabetes.csv' tidak ditemukan. Pastikan file ada di folder yang sama.")
-    except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
+    df = pd.read_csv("diabetes.csv")
+    
+    # Tampilkan data
+    st.dataframe(df, use_container_width=True)
+    
+    # Statistik
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Pasien", len(df))
+    with col2:
+        st.metric("Pasien Diabetes", df['Outcome'].sum())
+    with col3:
+        st.metric("Persentase Diabetes", f"{df['Outcome'].mean()*100:.1f}%")
+    
+    # Filter data
+    st.subheader("Filter Data")
+    col_filter1, col_filter2 = st.columns(2)
+    with col_filter1:
+        min_age = st.slider("Usia Minimum", int(df['Age'].min()), int(df['Age'].max()), 20)
+    with col_filter2:
+        min_glucose = st.slider("Glukosa Minimum", int(df['Glucose'].min()), int(df['Glucose'].max()), 100)
+    
+    filtered_df = df[(df['Age'] >= min_age) & (df['Glucose'] >= min_glucose)]
+    st.write(f"Menampilkan {len(filtered_df)} dari {len(df)} pasien")
+    st.dataframe(filtered_df, use_container_width=True)
+    
+    # Ekspor data
+    if st.button("📥 Download Data Filtered"):
+        csv = filtered_df.to_csv(index=False)
+        st.download_button(
+            label="Download CSV",
+            data=csv,
+            file_name="data_diabetes_filtered.csv",
+            mime="text/csv"
+        )
 
 # ==================== HALAMAN TENTANG ====================
-elif menu == "ℹ️ Tentang":
+else:
     st.header("ℹ️ Tentang Aplikasi")
     
     col_about1, col_about2 = st.columns([2, 1])
@@ -708,19 +446,18 @@ elif menu == "ℹ️ Tentang":
     st.markdown("---")
     st.write("**Versi Aplikasi:** 2.0.0")
     st.write("**Terakhir Diupdate:** " + datetime.now().strftime("%d %B %Y"))
-    st.write("**Developer:** Regina Ria Aurellia (632025005)")
+    st.write("**Developer:** Tim Prediksi Diabetes")
     
     # Kontak
     with st.expander("📞 Kontak & Support"):
         st.write("""
-        **Email:** 632025005@student.uksw.edu
-        **Universitas:** Universitas Kristen Satya Wacana Salatiga
-        **Program:** Magister Sains Data
-        **Mata Kuliah:** Artificial Intelligence
+        **Email:** support@prediksidiabetes.com
+        **Website:** www.prediksidiabetes.com
+        **Hotline:** 1500-123
         
-        **File yang Diperlukan:**
-        1. `diabetes_model.sav` - Model machine learning
-        2. `diabetes.csv` - Dataset untuk analisis
+        **Jam Operasional:**
+        Senin - Jumat: 08:00 - 17:00 WIB
+        Sabtu: 08:00 - 12:00 WIB
         """)
 
 # Footer
@@ -729,6 +466,6 @@ footer_col1, footer_col2, footer_col3 = st.columns(3)
 with footer_col1:
     st.caption("🩺 Aplikasi Prediksi Diabetes")
 with footer_col2:
-    st.caption("Regina Ria Aurellia - 632025005")
+    st.caption("Regina Ria Aurellia-632025005")
 with footer_col3:
-    st.caption(f"© {datetime.now().year} - Tugas Artificial Intelligence")
+    st.caption(f"© {datetime.now().year} - Hak Cipta Dilindungi")
